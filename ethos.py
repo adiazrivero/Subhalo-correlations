@@ -35,7 +35,6 @@ subh_cut=[]
 [subh_cut.append(i) for i in subh if i[0] > 1.5e-4 and i[1][0] < 300 and i[1][1] < 300 and i[1][2] < 300] #and i[0] < 1e-2]
 
 subh_mass,subh_pos,subh_vmax = zip(*subh_cut)
-#subh_mass = [i*1e10 for i in subh_mass]
 
 """counts,bins,bars = pl.hist(subh_mass,log=True,bins=np.logspace(4.0,11.0,150))
 f = pl.gca()
@@ -71,7 +70,7 @@ plt.xlabel('Vmax')
 plt.show()"""
 
 #######################################################################
-#rotating,projecting,fft
+#rotating,projecting
 #######################################################################
 
 def rotation(nx,ny,nz,theta):
@@ -93,13 +92,9 @@ while count < 1000:
     nnz = np.random.uniform(0,10)
     theta = np.random.uniform(0,2*np.pi)
 
-    #normalizing \vec{n}
     nx = 1/np.sqrt(nnx**2 + nny**2 + nnz**2) * nnx
     ny = 1/np.sqrt(nnx**2 + nny**2 + nnz**2) * nny
     nz = 1/np.sqrt(nnx**2 + nny**2 + nnz**2) * nnz
-
-    '''print 'unit vector: (%s,%s,%s) ' % (nx,ny,nz)
-    print 'magnitude: %s' % np.sqrt(nx**2 + ny**2 + nz**2)'''
 
     R = rotation(nx,ny,nz,theta)
     rot_pos = [np.dot(R,i) for i in subh_pos]
@@ -138,19 +133,23 @@ while count < 1000:
 
 print("--- %s seconds ---" % (time.time() - start_time))
 
-file = open('coords_10x10_2.py', 'w')
+file = open('coords_10x10.py', 'w')
+file.write('coords_list=')
 file.write('%s\n' % coords_10)
 file.close()
 
-file = open('coords_20x20_2.py', 'w')
+file = open('coords_20x20.py', 'w')
+file.write('coords_list=')
 file.write('%s\n' % coords_20)
 file.close()
 
-file = open('coords_30x30_2.py', 'w')
+file = open('coords_30x30.py', 'w')
+file.write('coords_list=')
 file.write('%s\n' % coords_30)
 file.close()
 
-file = open('coords_50x50_2.py', 'w')
+file = open('coords_50x50.py', 'w')
+file.write('coords_list=')
 file.write('%s\n' % coords_50)
 file.close()
 

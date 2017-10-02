@@ -4,7 +4,10 @@ import matplotlib.pyplot as plt
 import pylab as py
 import sys
 import time
-from coords_50x50_2 import coords_list
+#from coords_10x10 import coords_list
+#from coords_20x20 import coords_list
+#from coords_30x30 import coords_list
+from coords_50x50 import coords_list
 
 start_time = time.time()
 
