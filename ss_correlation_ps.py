@@ -53,7 +53,6 @@ while count < 1000:
     nx = 1/np.sqrt(nnx**2 + nny**2 + nnz**2) * nnx
     ny = 1/np.sqrt(nnx**2 + nny**2 + nnz**2) * nny
     nz = 1/np.sqrt(nnx**2 + nny**2 + nnz**2) * nnz
-
     #print "vector magnitude: %s" % (nx**2+ny**2+nz**2) #verifying it is a unit vector
 
     R = rotation(nx,ny,nz,theta)
@@ -83,6 +82,8 @@ coadd_corr = []
 for i in coords:
     x,y = zip(*i)
     H,xedges,yedges = np.histogram2d(x,y,bins=bns)
+    k_val = [(2*np.pi)/i for i in xedges]
+    #print k_val
     Nbar = H.mean()
     bin_avg.append(Nbar)
     corr = (H - Nbar) / Nbar
@@ -94,23 +95,31 @@ for i in coords:
 
 #print "average nbar: %s " % np.mean(bin_avg)
 
+show_nr = False
+show_ps = True
+
 tot_corr = sum(coadd_corr)
 tot_corr = [i/len(coadd_corr) for i in tot_corr]
 
-"""py.figure('(n - nbar)/nbar')
-plt.imshow(tot_corr,extent=[-rnge/2, rnge/2, -rnge/2, rnge/2],interpolation='nearest')
-plt.colorbar()
-py.show()"""
+if show_nr == True:
+    py.figure('(n - nbar)/nbar')
+    plt.imshow(tot_corr,extent=[-rnge/2, rnge/2, -rnge/2, rnge/2],interpolation='nearest')
+    plt.colorbar()
+    py.show()
 
 coadd_ps = [i/len(coadd_ps) for i in coadd_ps]
 tot_ps = sum(coadd_ps)
 tot_ps = np.fft.fftshift(tot_ps)
-kx = np.fft.fftfreq(bns,d=bin_size)
+kx = np.fft.fftfreq(tot_ps.shape[0],d=bin_size)
+kx = [2*np.pi*i for i in kx]
+ky = np.fft.fftfreq(tot_ps.shape[1],d=bin_size)
+ky = [2*np.pi*i for i in ky]
 
-"""py.figure('2d Power Spectrum (2)')
-py.imshow(tot_ps,extent=[min(kx),max(kx),min(kx),max(kx)],interpolation='nearest')
-plt.colorbar()
-py.show()"""
+if show_ps == True:
+    py.figure('2d Power Spectrum')
+    py.imshow(tot_ps,extent=[min(kx),max(kx),min(ky),max(ky)],interpolation='nearest')
+    plt.colorbar()
+    py.show()
 
 def oneD_ps(data,pixel_size=1):
     ps2d = np.array(data)
@@ -119,13 +128,15 @@ def oneD_ps(data,pixel_size=1):
     y1 = np.arange(-pixy/2.,pixy/2.)
     x,y = np.meshgrid(y1,x1)
 
-    conv = (pixx/2.)/kx[1]
-
     k = np.sqrt(x**2+y**2)
     kmax = k.max()
     dk = pixel_size
-    K = (np.arange(kmax/dk)*dk + dk/2.)/conv
+
+    K1 = np.arange(kmax/dk)*dk + dk/2.
+    conv = kx[1]/K1[-1]
+    K = K1*conv
     nk = len(K)
+    print K
 
     ring_mean = []
     for i in range(nk):
@@ -146,19 +157,20 @@ norm = (A_pix**2)/(A_box)
 ps1d = [norm*i for i in ps1d]
 avg_ps = np.mean(ps1d)
 var = [(i**2-avg_ps)**2/len(coords) for i in ps1d]
-print var
 
 #tst = test()
 tst = None
 
+py.figure('1d Power Spectrum')
 ax = plt.subplot(111)
-ax.set_xscale("log", nonposx='clip')
-ax.set_yscale("log", nonposy='clip')
+ax.set_xscale("log")
+ax.set_yscale("log")
 plt.errorbar(K, ps1d, xerr=0, yerr=var)
 if tst is not None:
     plt.loglog(K,tst)
-ax.set_xlim(min(K),max(K))
-ax.set_title('P_ss(k)')
+ax.set_xlim(min(K)-1e-5,max(K))
+ax.set_xlabel('k [h kpc]^-1')
+ax.set_ylabel('P_ss(k)[kpc/h]^2')
 plt.show()
 
 print("--- %s seconds ---" % (time.time() - start_time))
