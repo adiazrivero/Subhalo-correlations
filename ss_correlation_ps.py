@@ -1,9 +1,11 @@
+from __future__ import division
 import numpy as np
 import matplotlib.pyplot as plt
 import pylab as py
 import h5py
 import sys
 import time
+from test import test
 
 start_time = time.time()
 
@@ -31,14 +33,15 @@ subh_cut=[]
 [subh_cut.append(i) for i in subh if i[0] > 1.5e-4 and -Rnge/2. < i[1][0] < Rnge/2. and -Rnge/2. < i[1][1] < Rnge/2. and -Rnge/2. < i[1][2] < Rnge/2.]
 
 subh_mass,subh_pos = zip(*subh_cut)
-print "total number of ETHOS subhalos within r < %s kpc/h: %s " % (Rnge/2,len(subh_cut))
+#print "total number of ETHOS subhalos within r < %s kpc/h: %s " % (Rnge/2,len(subh_cut))
 
 def rotation(nx,ny,nz,theta):
     R = [[np.cos(theta) + (nx**2)*(1-np.cos(theta)) , nx*ny*(1-np.cos(theta)) - nz*np.sin(theta) , nx*nz*(1-np.cos(theta)) + ny*np.sin(theta)], [nx*ny*(1-np.cos(theta)) + nz*np.sin(theta) , np.cos(theta) + (ny**2)*(1-np.cos(theta)) , ny*nz*(1-np.cos(theta)) - nx*np.sin(theta)], [nz*nx*(1-np.cos(theta)) - ny*np.sin(theta) , nz*ny*(1-np.cos(theta)) + nx*np.sin(theta) , np.cos(theta) + (nz**2)*(1-np.cos(theta))]]
 
     return R
 
-coords_50 = []
+rnge = 100
+coords = []
 count = 0
 while count < 1000:
     count += 1
@@ -57,28 +60,27 @@ while count < 1000:
     #print np.linalg.det(R) #verifying det=1
     rot_pos = [np.dot(R,i) for i in subh_pos]
 
-    proj_xy_5 = [[i[0],i[1]] for i in rot_pos if -50 < i[0] < 50 and -50 < i[1] < 50]
-    proj_xz_5 = [[i[0],i[2]] for i in rot_pos if -50 < i[0] < 50 and -50 < i[2] < 50]
-    proj_yz_5 = [[i[1],i[2]] for i in rot_pos if -50 < i[1] < 50 and -50 < i[2] < 50]
+    proj_xy = [[i[0],i[1]] for i in rot_pos if -rnge/2. < i[0] < rnge/2. and -rnge/2. < i[1] < rnge/2.]
+    proj_xz = [[i[0],i[2]] for i in rot_pos if -rnge/2. < i[0] < rnge/2. and -rnge/2. < i[2] < rnge/2.]
+    proj_yz = [[i[1],i[2]] for i in rot_pos if -rnge/2. < i[1] < rnge/2. and -rnge/2. < i[2] < rnge/2.]
 
-    coords_50.append(proj_xy_5)
-    coords_50.append(proj_xz_5)
-    coords_50.append(proj_yz_5)
+    coords.append(proj_xy)
+    coords.append(proj_xz)
+    coords.append(proj_yz)
 
 tot_num_subh = []
-for i in coords_50:
+for i in coords:
     tot_num_subh.append(len(i))
 
-print "average number of subhalos within r < 50 kpc/h after rotating & projecting: %s" % np.mean(tot_num_subh)
+#print "average number of subhalos within r < 50 kpc/h after rotating & projecting: %s" % np.mean(tot_num_subh)
 
-rnge = 100
 bns = 20
 bin_size = rnge/bns
 bin_avg = []
 coadd_ps = []
 coadd_corr = []
 
-for i in coords_50:
+for i in coords:
     x,y = zip(*i)
     H,xedges,yedges = np.histogram2d(x,y,bins=bns)
     Nbar = H.mean()
@@ -90,7 +92,7 @@ for i in coords_50:
     ps2D = np.abs(ft)**2
     coadd_ps.append(ps2D)
 
-print "average nbar: %s " % np.mean(bin_avg)
+#print "average nbar: %s " % np.mean(bin_avg)
 
 tot_corr = sum(coadd_corr)
 tot_corr = [i/len(coadd_corr) for i in tot_corr]
@@ -135,11 +137,28 @@ def oneD_ps(data,pixel_size=1):
 
     return ring_mean,K
 
-pix_size_k = 2*np.pi / bin_size
+pix_size_k = 2*np.pi/bin_size
 ps1d,K = oneD_ps(tot_ps,pixel_size=pix_size_k)
-plt.loglog(K,ps1d)
-plt.xlim(min(K),max(K))
-plt.ylim(min(ps1d),max(ps1d))
+
+A_pix = bin_size**2 #(kpc/h)^2
+A_box = rnge**2 #(kpc/h)^2
+norm = (A_pix**2)/(A_box)
+ps1d = [norm*i for i in ps1d]
+avg_ps = np.mean(ps1d)
+var = [(i**2-avg_ps)**2/len(coords) for i in ps1d]
+print var
+
+#tst = test()
+tst = None
+
+ax = plt.subplot(111)
+ax.set_xscale("log", nonposx='clip')
+ax.set_yscale("log", nonposy='clip')
+plt.errorbar(K, ps1d, xerr=0, yerr=var)
+if tst is not None:
+    plt.loglog(K,tst)
+ax.set_xlim(min(K),max(K))
+ax.set_title('P_ss(k)')
 plt.show()
 
 print("--- %s seconds ---" % (time.time() - start_time))
