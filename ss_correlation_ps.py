@@ -96,7 +96,7 @@ for i in coords:
 #print "average nbar: %s " % np.mean(bin_avg)
 
 show_nr = False
-show_ps = True
+show_ps = False
 
 tot_corr = sum(coadd_corr)
 tot_corr = [i/len(coadd_corr) for i in tot_corr]
@@ -151,12 +151,14 @@ def oneD_ps(data,pixel_size=1):
 pix_size_k = 2*np.pi/bin_size
 ps1d,K = oneD_ps(tot_ps,pixel_size=pix_size_k)
 
-A_pix = bin_size**2 #(kpc/h)^2
-A_box = rnge**2 #(kpc/h)^2
-norm = (A_pix**2)/(A_box)
+A_pix = bin_size**2
+A_box = rnge**2
+norm = A_pix**2/A_box
 ps1d = [norm*i for i in ps1d]
 avg_ps = np.mean(ps1d)
-var = [(i**2-avg_ps)**2/len(coords) for i in ps1d]
+var = [(i-avg_ps)**2 for i in ps1d]
+var = np.sum(var)/len(K)
+print var
 
 #tst = test()
 tst = None
@@ -165,7 +167,7 @@ py.figure('1d Power Spectrum')
 ax = plt.subplot(111)
 ax.set_xscale("log")
 ax.set_yscale("log")
-plt.errorbar(K, ps1d, xerr=0, yerr=var)
+plt.errorbar(K, ps1d, yerr=var)
 if tst is not None:
     plt.loglog(K,tst)
 ax.set_xlim(min(K)-1e-5,max(K))
