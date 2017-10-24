@@ -82,24 +82,22 @@ coadd_corr = []
 for i in coords:
     x,y = zip(*i)
     H,xedges,yedges = np.histogram2d(x,y,bins=bns)
-    k_val = [(2*np.pi)/i for i in xedges]
-    #print k_val
     Nbar = H.mean()
     bin_avg.append(Nbar)
     corr = (H - Nbar) / Nbar
     coadd_corr.append(corr)
     ft = np.fft.fft2(corr)
-    ft = [i/(2*np.pi) for i in ft] #numpy fft convention: e^(-i2\pixk)
+    ft = 1/(2*np.pi)*np.fft.fft2(corr)
     ps2D = np.abs(ft)**2
     coadd_ps.append(ps2D)
 
 #print "average nbar: %s " % np.mean(bin_avg)
 
-show_nr = False
-show_ps = False
-
 tot_corr = sum(coadd_corr)
 tot_corr = [i/len(coadd_corr) for i in tot_corr]
+
+show_nr = False
+show_ps = False
 
 if show_nr == True:
     py.figure('(n - nbar)/nbar')
@@ -110,10 +108,10 @@ if show_nr == True:
 coadd_ps = [i/len(coadd_ps) for i in coadd_ps]
 tot_ps = sum(coadd_ps)
 tot_ps = np.fft.fftshift(tot_ps)
-kx = np.fft.fftfreq(tot_ps.shape[0],d=bin_size)
-kx = [2*np.pi*i for i in kx]
-ky = np.fft.fftfreq(tot_ps.shape[1],d=bin_size)
-ky = [2*np.pi*i for i in ky]
+kx = 2*np.pi*np.fft.fftfreq(tot_ps.shape[0],d=bin_size)
+kx = np.fft.fftshift(kx)
+ky = 2*np.pi*np.fft.fftfreq(tot_ps.shape[1],d=bin_size)
+ky = np.fft.fftshift(ky)
 
 if show_ps == True:
     py.figure('2d Power Spectrum')
@@ -123,42 +121,42 @@ if show_ps == True:
 
 def oneD_ps(data,pixel_size=1):
     ps2d = np.array(data)
-    pixx, pixy = ps2d.shape
-    x1 = np.arange(-pixx/2.,pixx/2.)
-    y1 = np.arange(-pixy/2.,pixy/2.)
-    x,y = np.meshgrid(y1,x1)
-
+    x,y = np.meshgrid(ky,kx)
     k = np.sqrt(x**2+y**2)
     kmax = k.max()
     dk = pixel_size
-
-    K1 = np.arange(kmax/dk)*dk + dk/2.
-    conv = kx[1]/K1[-1]
-    K = K1*conv
+    K = np.arange(kmax/dk)*dk
     nk = len(K)
-    print K
 
     ring_mean = []
     for i in range(nk):
         kmin = i*dk
         kmax = kmin + dk
-        ind = (k>=kmin) * (k<kmax)
+        ind = (k>=kmin) * (k<=kmax)
         #print ind*1
         ring_mean.append(data[ind].mean())
 
     return ring_mean,K
 
-pix_size_k = 2*np.pi/bin_size
+pix_size_k = np.abs(kx[0]-kx[1])
 ps1d,K = oneD_ps(tot_ps,pixel_size=pix_size_k)
 
 A_pix = bin_size**2
 A_box = rnge**2
 norm = A_pix**2/A_box
 ps1d = [norm*i for i in ps1d]
-avg_ps = np.mean(ps1d)
-var = [(i-avg_ps)**2 for i in ps1d]
-var = np.sum(var)/len(K)
-print var
+
+#CALCULATE THE VARIANCE
+var = []
+for i in coadd_ps:
+    ps,kk = oneD_ps(i,pixel_size=pix_size_k)
+    ps = [norm*i for i in ps]
+    variance = [(i-j)**2 for i,j in zip(ps,ps1d)]
+    var.append(variance)
+
+x = 1/len(var)
+vari = [x*sum(i) for i in zip(*var)]
+#vari = np.sum(var,0)
 
 #tst = test()
 tst = None
@@ -167,10 +165,12 @@ py.figure('1d Power Spectrum')
 ax = plt.subplot(111)
 ax.set_xscale("log")
 ax.set_yscale("log")
-plt.errorbar(K, ps1d, yerr=var)
+#plt.plot(K,ps1d)
+plt.errorbar(K, ps1d, yerr=vari)
 if tst is not None:
     plt.loglog(K,tst)
-ax.set_xlim(min(K)-1e-5,max(K))
+ax.set_xlim(1e-3,max(K)+1e-1)
+ax.set_ylim(1e-1,max(ps1d)+1)
 ax.set_xlabel('k [h kpc]^-1')
 ax.set_ylabel('P_ss(k)[kpc/h]^2')
 plt.show()
