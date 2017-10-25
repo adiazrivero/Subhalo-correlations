@@ -1,3 +1,2 @@
-ss_correlation_ps.py: takes in all redshift 0 ETHOS data and returns P_ss(k)
-
-test.py: generates random subhalos and returns P_ss(k) (testing the null case where there are no subhalo-subhalo correlations)
+functions.py: defines all the functions necessary to obtain the angular averaged-power spectrum with error bars
+1d_power_spectrum: calls the functions in functions.py and also offers the option to simulate random data and obtain its power spectrum to compare with the ETHOS data
