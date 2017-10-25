@@ -5,22 +5,19 @@ import pylab as py
 import sys
 import time
 
-def test():
-    Rnge = 100
-    num = 1406 # average number of ETHOS subhalos within r < 50 kpc/h after rotating and projecting
-    #Rnge = 50
+def test(rnge=100,shift=0,subh_num=1,show_nr=False,show_ps=False,num_proj=3000):
+    #subh_num = 1406 # average number of ETHOS subhalos within r < 50 kpc/h after rotating and projecting
     #num = 430 # average number of ETHOS subhalos within r < 50 kpc/h after rotating and projecting
 
     coords = []
     count = 0
-    while count < 3000:
+    while count < num_proj:
         count += 1
-        rand = np.random.uniform(-Rnge/2.,Rnge/2.,(num,2))
+        rand = np.random.uniform(-rnge/2.,rnge/2.,(subh_num,2))
         coords.append(rand)
 
-    #rnge = 50
     bns = 20
-    bin_size = Rnge/bns
+    bin_size = rnge/bns
     bin_avg = []
     coadd_ps = []
     coadd_corr = []
@@ -33,61 +30,56 @@ def test():
         corr = (H - Nbar) / Nbar
         coadd_corr.append(corr)
         ft = np.fft.fft2(corr)
-        ft = [i/(2*np.pi) for i in ft] #numpy fft convention: e^(-i2\pixk)
+        ft = 1/(2*np.pi)*np.fft.fft2(corr)
         ps2D = np.abs(ft)**2
         coadd_ps.append(ps2D)
-
-    print "average nbar: %s " % np.mean(bin_avg)
 
     tot_corr = sum(coadd_corr)
     tot_corr = [i/len(coadd_corr) for i in tot_corr]
 
-    """py.figure('(n - nbar)/nbar')
-    plt.imshow(tot_corr,extent=[-Rnge/2, Rnge/2, -Rnge/2, Rnge/2],interpolation='nearest')
-    plt.colorbar()
-    py.show()"""
+    if show_nr == True:
+        py.figure('(n - nbar)/nbar')
+        plt.imshow(tot_corr,extent=[-rnge/2+shift, rnge/2+shift, -rnge/2+shift, rnge/2+shift],interpolation='nearest')
+        plt.colorbar()
+        py.show()
 
     coadd_ps = [i/len(coadd_ps) for i in coadd_ps]
     tot_ps = sum(coadd_ps)
     tot_ps = np.fft.fftshift(tot_ps)
-    kx = np.fft.fftfreq(bns,d=bin_size)
+    kx = 2*np.pi*np.fft.fftfreq(tot_ps.shape[0],d=bin_size)
+    kx = np.fft.fftshift(kx)
+    ky = 2*np.pi*np.fft.fftfreq(tot_ps.shape[1],d=bin_size)
+    ky = np.fft.fftshift(ky)
 
-    """py.figure('2d Power Spectrum (2)')
-    py.imshow(tot_ps,extent=[min(kx),max(kx),min(kx),max(kx)],interpolation='nearest')
-    plt.colorbar()
-    py.show()"""
+    if show_ps == True:
+        py.figure('2d Power Spectrum')
+        py.imshow(tot_ps,extent=[min(kx),max(kx),min(ky),max(ky)],interpolation='nearest')
+        plt.colorbar()
+        py.show()
 
     def oneD_ps(data,pixel_size=1):
         ps2d = np.array(data)
-        pixx, pixy = ps2d.shape
-        x1 = np.arange(-pixx/2.,pixx/2.)
-        y1 = np.arange(-pixy/2.,pixy/2.)
-        x,y = np.meshgrid(y1,x1)
-
-        conv = (pixx/2.)/kx[1]
-
+        x,y = np.meshgrid(ky,kx)
         k = np.sqrt(x**2+y**2)
         kmax = k.max()
         dk = pixel_size
-        K = (np.arange(kmax/dk)*dk + dk/2.)/conv
-        nk = len(K)
+        K = np.arange(kmax/dk)*dk
 
-        ring_mean = []
-        for i in range(nk):
+        ring = []
+        for i in range(len(K)):
             kmin = i*dk
             kmax = kmin + dk
-            ind = (k>=kmin) * (k<kmax)
-            #print ind*1
-            ring_mean.append(data[ind].mean())
+            index = (k>=kmin) * (k<=kmax)
+            ring.append(data[index].mean())
 
-        return ring_mean,K
+        return ring,K
 
-    pix_size_k = 2*np.pi/bin_size
+    pix_size_k = np.abs(kx[0]-kx[1])
     ps1d,K = oneD_ps(tot_ps,pixel_size=pix_size_k)
 
-    A_pix = bin_size**2 #(kpc/h)^2
-    A_box = Rnge**2 #(kpc/h)^2
-    norm = (A_pix**2)/(A_box)
+    A_pix = bin_size**2
+    A_box = rnge**2
+    norm = A_pix**2/A_box
     ps1d = [norm*i for i in ps1d]
 
     return ps1d

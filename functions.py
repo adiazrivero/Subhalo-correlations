@@ -24,8 +24,6 @@ def simul_data(Rnge=1):
     positions = [i - parent_pos for i in positions1]
 
     subh = zip(masses[1:],positions[1:])
-
-    #Rnge = 600
     subh_cut=[]
     [subh_cut.append(i) for i in subh if i[0] > 1.5e-4 and -Rnge/2. < i[1][0] < Rnge/2. and -Rnge/2. < i[1][1] < Rnge/2. and -Rnge/2. < i[1][2] < Rnge/2.]
 
@@ -40,8 +38,6 @@ def rotation(nx,ny,nz,theta):
     return R
 
 def projections(positions,rnge=100,shift=0,num_proj=1000):
-
-    #rnge = 100
     coords = []
     count = 0
     while count < num_proj:
@@ -54,13 +50,9 @@ def projections(positions,rnge=100,shift=0,num_proj=1000):
         nx = 1/np.sqrt(nnx**2 + nny**2 + nnz**2) * nnx
         ny = 1/np.sqrt(nnx**2 + nny**2 + nnz**2) * nny
         nz = 1/np.sqrt(nnx**2 + nny**2 + nnz**2) * nnz
-        #print "vector magnitude: %s" % (nx**2+ny**2+nz**2) #verifying it is a unit vector
 
         R = rotation(nx,ny,nz,theta)
-        #print np.linalg.det(R) #verifying det=1
         rot_pos = [np.dot(R,i) for i in positions]
-
-        #shift = 10
 
         proj_xy = [[i[0],i[1]] for i in rot_pos if -rnge/2.+shift < i[0] < rnge/2.+shift and -rnge/2.+shift < i[1] < rnge/2.+shift]
         proj_xz = [[i[0],i[2]] for i in rot_pos if -rnge/2.+shift < i[0] < rnge/2.+shift and -rnge/2.+shift < i[2] < rnge/2.+shift]
@@ -70,17 +62,14 @@ def projections(positions,rnge=100,shift=0,num_proj=1000):
         coords.append(proj_xz)
         coords.append(proj_yz)
 
-    return coords
+        tot_num_subh = []
+        for i in coords:
+            tot_num_subh.append(len(i))
+        avg_num_subh = np.mean(tot_num_subh)
+        #print "average number of subhalos within r < 50 kpc/h after rotating & projecting: %s" % np.mean(tot_num_subh)
 
-"""tot_num_subh = []
-for i in coords:
-    tot_num_subh.append(len(i))
-print "average number of subhalos within r < 50 kpc/h after rotating & projecting: %s" % np.mean(tot_num_subh)"""
+    return coords,avg_num_subh
 
-"""for i in coords[:3]:
-    x,y = zip(*i)
-    plt.scatter(x,y)
-    plt.show()"""
 
 def twoD_ps(coords,bns=20,rnge=100,shift=0,show_nr=False,show_ps=False):
     """
@@ -92,8 +81,6 @@ def twoD_ps(coords,bns=20,rnge=100,shift=0,show_nr=False,show_ps=False):
         show_nr: whether you want to see xi_ss
         show_ps: whether you want to see the 2d power spectrum
     """
-
-    #bns = 20
     bin_size = rnge/bns
     bin_avg = []
     coadd_ps = []
@@ -138,7 +125,6 @@ def twoD_ps(coords,bns=20,rnge=100,shift=0,show_nr=False,show_ps=False):
         plt.colorbar()
         py.show()
 
-    #,kx,ky,bin_size
     return coadd_ps,tot_ps,kx,ky,bin_size
 
 def oneD_ps(data,kx,ky,rnge=100,bin_size=1,pixel_size=1):
@@ -149,8 +135,7 @@ def oneD_ps(data,kx,ky,rnge=100,bin_size=1,pixel_size=1):
     dk = pixel_size
     K = np.arange(kmax/dk)*dk
     """print K
-    print [2*np.pi/i for i in K]
-    sys.exit()"""
+    print [2*np.pi/i for i in K]"""
 
     ps1d = []
     for i in range(len(K)):
@@ -170,7 +155,6 @@ def oneD_ps(data,kx,ky,rnge=100,bin_size=1,pixel_size=1):
 def error_bars(coadd_ps,ps1d,kx,ky,rnge=100,pix_size=1):
     var = []
     for i in coadd_ps:
-        #ps,kk = oneD_ps(i,pixel_size=pix_size_k)
         ps,kk,norm = oneD_ps(i,kx,ky,rnge=100,bin_size=1,pixel_size=pix_size)
         ps = [norm*i for i in ps]
         variance = [(i-j)**2 for i,j in zip(ps,ps1d)]
