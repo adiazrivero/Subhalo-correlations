@@ -8,12 +8,13 @@ import time
 import h5py
 import cmath
 from rein import rein_sigmac
-from functions import simul_data,rotation,projections,angular_average
+from functions import simul_data,rotation,projections,twoD_ps,angular_average
 
 start_time = time.time()
 
 rnge = 100
 shft = 0
+
 
 # importing data from halo catalogs
 list1 = ['fof_subhalo_tab_127.0.hdf5','fof_subhalo_tab_127.1.hdf5','fof_subhalo_tab_127.2.hdf5','fof_subhalo_tab_127.3.hdf5','fof_subhalo_tab_127.4.hdf5','fof_subhalo_tab_127.5.hdf5','fof_subhalo_tab_127.6.hdf5','fof_subhalo_tab_127.7.hdf5','fof_subhalo_tab_127.8.hdf5','fof_subhalo_tab_127.9.hdf5','fof_subhalo_tab_127.10.hdf5','fof_subhalo_tab_127.11.hdf5','fof_subhalo_tab_127.12.hdf5','fof_subhalo_tab_127.13.hdf5','fof_subhalo_tab_127.14.hdf5','fof_subhalo_tab_127.15.hdf5']
@@ -23,7 +24,7 @@ mass2 = [i*10**(10) for i in mass] #units of M_sun
 rein,sigmac = rein_sigmac(1.04e12,1,0.5) #in kpc and M_sun/kpc^2
 h = 0.7
 rein_kpch = h*rein
-num_proj = 33
+num_proj = 30
 
 posmass,num_sub = projections(pos,mass2,rnge=rnge,shift=shft,num_proj=num_proj)
 
@@ -118,8 +119,6 @@ for g in pos_2d:
     res = np.log10(sum(result))
     conv_list.append(res)
 
-print("--- %s seconds ---" % (time.time() - start_time))
-
 conv_array = []
 for i in conv_list:
     k = [np.asarray(j) for j in i]
@@ -127,65 +126,11 @@ for i in conv_list:
 
 avg_conv = [sum(f)/len(conv_array) for f in zip(*conv_array)]
 
-###################################################################################
-#finding average convergence at r_ein and the average convergence in the SL region
-###################################################################################
+conv_list2 = np.asarray(conv_list)
+avg_conv2 = np.asarray(avg_conv)
 
-im = np.array(avg_conv)
-im2 = 10**im
-xx,yy = np.meshgrid(x,y)
-r = np.sqrt(xx**2+yy**2)
-rmax = v
-dr = pix_size
-R = np.arange(rmax/dr)*dr
-
-kappar = []
-kappa_rein = []
-cum_avgkappa = []
-
-for i in range(len(R)):
-    rmin = i*dr
-    rmax = rmin + dr
-    index = (r>=rmin) * (r<=rmax)
-    if rein-0.5 < rmax < rein+0.5:
-        kappa_rein.append(im2[index].mean())
-    if rmax <= rein:
-        cum_avgkappa.append(im2[index].mean())
-
-avgkappa = np.mean(kappa_rein)
-
-print "Average convergence at the Einstein radius: %s " % avgkappa
-print "Average convergence in the SL region: %s " % np.mean(cum_avgkappa)
+np.save('kavg',np.mean(kavg))
+np.save('ind_conv',conv_list2)
+np.save('tot_conv',avg_conv2)
 
 print("--- %s seconds ---" % (time.time() - start_time))
-
-plot_2dkappa = True
-
-if plot_2dkappa == True:
-    fig,ax = plt.subplots(1)
-    k = ax.imshow(avg_conv,extent=[-v,v,-v,v])
-    Rein = rein
-    circ = Circle((0,0),Rein,facecolor='none',fill=False,linestyle='dashed')
-    ax.add_patch(circ)
-    fig.colorbar(k)
-    plt.xlabel('kpc/h')
-    plt.title('Convergence field on the lens plane (%s proj/k_avg=%.4f)' % (num_proj*3,np.mean(cum_avgkappa)))
-    plt.show()
-
-####################################
-# Doing the 2D FT and angular averaging to obtain the PS
-####################################
-
-ft = np.fft.fft2(avg_conv)
-ft2 = np.abs(ft)**2
-ps2d = np.fft.fftshift(ft2)
-
-kx = 2*np.pi*np.fft.fftfreq(ps2d.shape[0],d=pix_size)
-kx = np.fft.fftshift(kx)
-ky = 2*np.pi*np.fft.fftfreq(ps2d.shape[1],d=pix_size)
-ky = np.fft.fftshift(ky)
-pix_size_k = np.abs(kx[0]-kx[1])
-
-ps1d,K = angular_average(ps2d,kx,ky,rnge=rnge,pix_num=points,dr=pix_size_k,remove_first=True)
-plt.loglog(K,ps1d)
-plt.show()
