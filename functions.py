@@ -71,8 +71,18 @@ def rotation(nx,ny,nz,theta):
 
     return R
 
-#THIS ONE WORKS WITH COORDSM
 def projections(positions,masses,rnge=100,shift=0,num_proj=1000):
+    """
+    inputs:
+        positions: array of 3d positions
+        masses: array of masses
+        rnge: (2*radial distance) out to which we want to include subhalos
+        shift: optional shift away from the host center; default is zero
+        num_proj: (total number of 2d maps we want)/3 - the division by three is because for each 3d map we project in three different directions, namely xy,xz,yz
+    outputs:
+        coordsm: array of 2d positions and masses (len(coordsm)=3*num_proj)
+        avg_num_subh: average number of subhalos within r < rnge/2 kpc/h after rotating and projecting
+    """
     coords = []
     coordsm = []
     count = 0
