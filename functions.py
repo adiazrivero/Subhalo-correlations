@@ -4,40 +4,60 @@ import matplotlib.pyplot as plt
 import pylab as py
 import h5py
 import sys
+import itertools
+import scipy
+from scipy.interpolate import griddata
+from mpl_toolkits.mplot3d import Axes3D
+from fullprint import fullprint
 
-
-def simul_data(data,Rnge=1):
+def simul_data(data,Rnge=600,mhigh_cut=False):
     """
-    takes in simulation data and returns subhalo masses and positions
+    takes in subhalo catalogs and returns subhalo masses, positions, halfmass and vmax radii
     inputs:
-        data: simulation data
-        Rnge: (2*radial distance) out to which we want to include subhalos
+        data: halo catalog
+        Rnge: size (in kpc/h) of the box/cube out to which we want to include subhalos
     outputs:
         subh_mass: list of subhalo masses
         subh_pos: list of subhalo positions
+        rh : halfmass radius
+        rvmax: radius at which v_max (max. circular velocity) is achieved
     """
     masses = []
     positions1 = []
-    vmax1 = []
+    rh = []
+    rvmax = []
     for i in data:
         file = h5py.File(i,'r')
         if len(file['Subhalo'].keys()) != 0:
             masses.append(file['Subhalo']['SubhaloMass'].value) #in 10^10 M_sun/h
-            positions1.append(file['Subhalo']['SubhaloPos'].value) # in kpc/h, box coordinates
+            positions1.append(file['Subhalo']['SubhaloPos'].value) # in kpc/h, absolute box coordinates
+            rh.append(file['Subhalo']['SubhaloHalfmassRad'].value) # in kpc/h
+            rvmax.append(file['Subhalo']['SubhaloVmaxRad'].value) # in kpc/h
 
     masses = [i for j in masses for i in j]
     positions1 = [i for j in positions1 for i in j]
+    rh = [i for j in rh for i in j]
+    rvmax = [i for j in rvmax for i in j]
     parent_mass = masses[0]
     parent_pos = positions1[0]
-    positions = [i - parent_pos for i in positions1]
+    positions = [i - parent_pos for i in positions1] #setting origin at halo center
+    subh = zip(masses[1:],positions[1:],rh[1:],rvmax[1:])
 
-    subh = zip(masses[1:],positions[1:])
-    subh_cut=[]
-    [subh_cut.append(i) for i in subh if i[0] > 1.5e-4 and -Rnge/2. < i[1][0] < Rnge/2. and -Rnge/2. < i[1][1] < Rnge/2. and -Rnge/2. < i[1][2] < Rnge/2.]
+    #keeping subhalos above mass resolution limit (and below mhigh if mhigh_cut = True) and out to 300 kpc/h
 
-    subh_mass,subh_pos = zip(*subh_cut)
+    if mhigh_cut == True:
 
-    return subh_mass,subh_pos
+        subh_cut = [i for i in subh if 1.5e-4 < i[0] <= 1e-2 and -Rnge/2. < i[1][0] < Rnge/2. and -Rnge/2. < i[1][1] < Rnge/2. and -Rnge/2. < i[1][2] < Rnge/2.] #imposing an mhigh cut
+        mass,pos,rh,rvmax = zip(*subh_cut)
+
+        return mass,pos,rh,rvmax
+
+    else:
+
+        subh_cut = [i for i in subh if 1.5e-4 < i[0] and -Rnge/2. < i[1][0] < Rnge/2. and -Rnge/2. < i[1][1] < Rnge/2. and -Rnge/2. < i[1][2] < Rnge/2.]
+        mass,pos,rh,rvmax = zip(*subh_cut)
+
+        return mass,pos,rh,rvmax
 
 def rotation(nx,ny,nz,theta):
     """
@@ -51,19 +71,10 @@ def rotation(nx,ny,nz,theta):
 
     return R
 
-def projections(positions,rnge=100,shift=0,num_proj=1000):
-    """
-    takes in arrays of 3d positions and returns arrays of 2d positions
-    inputs:
-        positions: array of 3d positions
-        rnge: (2*radial distance) out to which we want to include subhalos (i.e. box size)
-        shift: optional shift away from the host center; default is zero
-        num_proj: (total number of 2d maps we want)/3 (the division by three is because for each 3d map we project in three different directions, namely xy,xz,yz)
-    outputs:
-        coords: array of 2d positions
-        avg_num_subh: average number of subhalos within r < rnge/2 kpc/h after rotating and projecting
-    """
+#THIS ONE WORKS WITH COORDSM
+def projections(positions,masses,rnge=100,shift=0,num_proj=1000):
     coords = []
+    coordsm = []
     count = 0
     while count < num_proj:
         count += 1
@@ -79,136 +90,188 @@ def projections(positions,rnge=100,shift=0,num_proj=1000):
         R = rotation(nx,ny,nz,theta)
         rot_pos = [np.dot(R,i) for i in positions]
 
-        proj_xy = [[i[0],i[1]] for i in rot_pos if -rnge/2.+shift < i[0] < rnge/2.+shift and -rnge/2.+shift < i[1] < rnge/2.+shift]
-        proj_xz = [[i[0],i[2]] for i in rot_pos if -rnge/2.+shift < i[0] < rnge/2.+shift and -rnge/2.+shift < i[2] < rnge/2.+shift]
-        proj_yz = [[i[1],i[2]] for i in rot_pos if -rnge/2.+shift < i[1] < rnge/2.+shift and -rnge/2.+shift < i[2] < rnge/2.+shift]
+        proj_xy2 = [[[i[0],i[1]],j] for i,j in zip(rot_pos,masses) if -rnge/2.+shift < i[0] < rnge/2.+shift and -rnge/2.+shift < i[1] < rnge/2.+shift]
+        proj_xz2 = [[[i[0],i[2]],j] for i,j in zip(rot_pos,masses) if -rnge/2.+shift < i[0] < rnge/2.+shift and -rnge/2.+shift < i[2] < rnge/2.+shift]
+        proj_yz2 = [[[i[1],i[2]],j] for i,j in zip(rot_pos,masses) if -rnge/2.+shift < i[1] < rnge/2.+shift and -rnge/2.+shift < i[2] < rnge/2.+shift]
 
-        coords.append(proj_xy)
-        coords.append(proj_xz)
-        coords.append(proj_yz)
+        coordsm.append(proj_xy2)
+        coordsm.append(proj_xz2)
+        coordsm.append(proj_yz2)
 
         tot_num_subh = []
         for i in coords:
             tot_num_subh.append(len(i))
         avg_num_subh = np.mean(tot_num_subh)
 
-    #print "average number of subhalos within r < 50 kpc/h after rotating & projecting: %s" % np.mean(tot_num_subh)
+    return coordsm,avg_num_subh
 
-    return coords,avg_num_subh
-
-
-def twoD_ps(coords,bns=20,rnge=100,shift=0,show_nr=False,show_ps=False):
+def twoD_nr(coords,pix_num=20,rnge=100,shift=0,show_nr=False):
     """
-    takes in projected subhalo positions and returns the 2D power spectrum:
+    takes in projected subhalo positions and returns the 2D n(r)
     inputs:
         coords: list of lists, where each list is an array of 2d subhalo positions
-        bns: number of bins in the horizontal and vertical axes of the 2D power spectrum
+        pix_num: number of bins in the horizontal and vertical axes of the 2D power spectrum
         rnge: box size
         shift: offset from the halo center
-        show_nr: whether you want to display xi_ss
-        show_ps: whether you want to display the 2d power spectrum
-    outputs: individual_ps,tot_ps,kx,ky,bin_size
-        individual_ps: list of lists, where each list is a 2d power spectrum
-        tot_ps: total 2D power spectrum after coadding all 2d power spectra
-        ky,ky: fft frequencies
+        show_nr: whether you want to display it; default is False
+    outputs:
+        ind_corr: list of lists, where each list is a 2d n(r) map
+        tot_corr: coadded 2d n(r) map (i.e. coadding maps in ind_corr)
         bin_size: pixel size
+        np.mean(nbar): average nbar across all maps
     """
-    bin_size = rnge/bns
+    bin_size = rnge/pix_num
     bin_avg = []
-    individual_ps = []
-    coadd_corr = []
-
+    ind_corr = []
     for i in coords:
         x,y = zip(*i)
-        N,xedges,yedges = np.histogram2d(x,y,bins=bns)
+        n,xedges,yedges = np.histogram2d(x,y,bins=pix_num)
+        N = n.T
         Nbar = N.mean()
         bin_avg.append(Nbar)
         corr = (N - Nbar) / Nbar
-        coadd_corr.append(corr)
-        ft = np.fft.fft2(corr)
-        ft = 1/(2*np.pi)*np.fft.fft2(corr)
-        ps2D = np.abs(ft)**2
-        individual_ps.append(ps2D)
+        ind_corr.append(corr)
 
-    print "average Nbar: %s " % np.mean(bin_avg)
     nbar = Nbar/(bin_size**2)
-    print "average nbar: %s " % np.mean(nbar)
 
-    tot_corr = sum(coadd_corr)
-    tot_corr = [i/len(coadd_corr) for i in tot_corr]
+    tot_corr = sum(ind_corr)/len(ind_corr)
+    #tot_corr = [i/len(ind_corr) for i in tot_corr]
 
     if show_nr == True:
-        py.figure('(n - nbar)/nbar')
+        py.figure('(n - nbar)/nbar %s x %s' % (pix_num,pix_num))
         plt.imshow(tot_corr,extent=[-rnge/2+shift, rnge/2+shift, -rnge/2+shift, rnge/2+shift],interpolation='nearest')
         plt.colorbar()
         py.show()
 
-    individual_ps = [i/len(individual_ps) for i in individual_ps]
-    tot_ps = sum(individual_ps)
-    tot_ps = np.fft.fftshift(tot_ps)
-    kx = 2*np.pi*np.fft.fftfreq(tot_ps.shape[0],d=bin_size)
-    kx = np.fft.fftshift(kx)
-    ky = 2*np.pi*np.fft.fftfreq(tot_ps.shape[1],d=bin_size)
-    ky = np.fft.fftshift(ky)
+    return ind_corr,tot_corr,np.mean(nbar)
 
-    if show_ps == True:
-        py.figure('2d Power Spectrum')
-        py.imshow(tot_ps,extent=[min(kx),max(kx),min(ky),max(ky)],interpolation='nearest')
-        plt.colorbar()
-        py.show()
-
-    return individual_ps,tot_ps,kx,ky,bin_size
-
-def angular_average(data,kx,ky,rnge=100,bin_size=1,dk=1):
+def twoD_ps(data=None,ind_data=None,pix_size=0,rnge=100,shift=0,show_ps=False):
     """
-    takes in a 2d map and returns a 1d, angularly-averaged map
+    takes in a 2D array and returns the 2D FFT:
+    inputs:
+        ind_coords: n 2d arrays, whose average = coadd_coords
+        coadd_coords: a singe 2d array
+        pix_size: pixel size
+        rnge: box size
+        shift: offset from the halo center
+        show_ps: whether you want to display the 2d power spectrum
+    outputs:
+        ind_ps_x: list of lists, where each list is a 2d power spectrum
+        tot_ps: total 2D power spectrum after coadding all PS in ind_ps_x
+        ky,ky: fft frequencies
+    """
+    if data == None:
+
+        ind_ps = []
+        for i in ind_data:
+            ft = np.fft.fft2(i)
+            ps2D = np.abs(ft)**2
+            ind_ps.append(ps2D)
+
+        A_pix = pix_size**2
+        A_box = rnge**2
+        norm = A_pix**2/A_box
+
+        ind_ps_x = [norm*np.fft.fftshift(i) for i in ind_ps]
+        tot_ps = sum(ind_ps_x)/len(ind_ps_x)
+
+        kx = 2*np.pi*np.fft.fftfreq(tot_ps.shape[0],d=pix_size)
+        kx = np.fft.fftshift(kx)
+        ky = 2*np.pi*np.fft.fftfreq(tot_ps.shape[1],d=pix_size)
+        ky = np.fft.fftshift(ky)
+
+        if show_ps == True:
+            py.figure('2d Power Spectrum')
+            py.imshow(tot_ps,extent=[min(kx),max(kx),min(ky),max(ky)],interpolation='nearest')
+            plt.colorbar()
+            py.show()
+
+        return ind_ps_x,tot_ps,kx,ky
+
+    elif ind_data == None:
+
+        ft = np.fft.fft2(data)
+        ps2D = np.abs(ft)**2
+        tot_ps = np.fft.fftshift(ps2D)
+
+        A_pix = pix_size**2
+        A_box = rnge**2
+        norm = A_pix**2/A_box
+
+        tot_ps = np.asarray([norm*i for i in tot_ps])
+
+        kx = 2*np.pi*np.fft.fftfreq(tot_ps.shape[0],d=pix_size)
+        kx = np.fft.fftshift(kx)
+        ky = 2*np.pi*np.fft.fftfreq(tot_ps.shape[1],d=pix_size)
+        ky = np.fft.fftshift(ky)
+
+        if show_ps == True:
+            py.figure('2d Power Spectrum')
+            py.imshow(tot_ps,extent=[min(kx),max(kx),min(ky),max(ky)],interpolation='nearest')
+            plt.colorbar()
+            py.show()
+
+        return tot_ps,kx,ky
+
+def angular_average(data,x,y,rnge=100,pix_num=21,dr=1,remove_first=False):
+    """
+    takes in a 2d map and returns a 1d, angular-averaged map
     inputs:
         data: 2d map
         ky,ky: fft frequencies
-        rnge: 2d map range
-        bin_size:
-        pixel_size:
-
+        rnge: 2d map range in kpc/h
+        dk: pixel size
     """
-    ps2d = np.array(data)
-    x,y = np.meshgrid(ky,kx)
-    k = np.sqrt(x**2+y**2)
-    kmax = max(kx)
+    X,Y = np.meshgrid(x,y)
+    r = np.sqrt(X**2+Y**2)
 
-    dk = dk
-    K = np.arange(kmax/dk)*dk
+    if max(x) <= max(y):
+        rmax = max(x)
+    else:
+        rmax = max(y)
+    R = np.arange(rmax/dr)*dr
 
+    #loading a mask that allows us to do the angular averaging
+    orig_mask = np.load('mask.npy')
+    mask = []
+    #keep only the right number of rings (depends on pixel number)
+    for i in orig_mask[:len(R)]:
+        mask2 = []
+        beg = int((len(i[0])-pix_num)/2)
+        end = int(len(i[0])-beg)
+        for j in i[beg:end]:
+            mask2.append(j[beg:end])
+        mask.append(mask2)
+
+    data = np.asarray(data)
     ps1d = []
-    for i in range(len(K)):
-        kmin = i*dk
-        kmax = kmin + dk
-        index = (k>=kmin) * (k<=kmax)
-        #print index*1
-        ps1d.append(data[index].mean())
+    for i,j in zip(range(len(R)),mask):
+        ring = data*j
+        ring = ring[ring != 0]
+        ps1d.append(np.asarray(ring).mean())
 
-    A_pix = bin_size**2
-    A_box = rnge**2
-    norm = A_pix**2/A_box
-    ps1d = [norm*i for i in ps1d][1:]
-    K = K[1:]
-    return ps1d,K,norm
+    if remove_first == True:
+        return ps1d[1:],R[1:]
+    else:
+        return ps1d,R
 
-def variance(individual_ps,ps1d,N,kx,ky,rnge=100,pix_size=1):
+def variance(individual_ps,ps1d,N,kx,ky,rnge=100,pix_num=21,pix_size=1):
     """
     takes in a list of lists where each nested list is a single 2d map and returns the variance of each map with respect to the average of all the maps
         individual_ps: list of lists where each nested list is a single 2d map
         ps1d: average of all 2d maps
-        ky,ky: fft frequencies
+        kx,ky: fft frequencies
         rnge: spatial extent out to which we want to consider subhalos
+        pix_num: number of pixels
         pix_size: pixel size
     """
     var = []
     for i in individual_ps:
-        ps,kk,norm = angular_average(i,kx,ky,rnge=100,bin_size=1,dk=pix_size)
-        variance = [(i-j)**2 for i,j in zip(ps,ps1d)]
-        var.append(variance)
-    x = 1/N
-    var = x*np.sum(var,0)
+        ps,kk = angular_average(i,kx,ky,rnge=rnge,pix_num=pix_num,dr=pix_size,remove_first=True)
+        diff = [(1/N)*(i-j)**2 for i,j in zip(ps,ps1d)]
+        var.append(diff)
+
+    var = np.sum(var,axis=0)
     return var
 
 def poisson_realization(rnge=100,subh_num=1,num_proj=3000):
@@ -225,3 +288,24 @@ def poisson_realization(rnge=100,subh_num=1,num_proj=3000):
         rand = np.random.uniform(-rnge/2.,rnge/2.,(int(subh_num),2))
         coords.append(rand)
     return coords
+
+def interpolation(data,x,y,num=100j,display=False):
+    """
+    Takes in discrete 2d array and returns an interpolated array
+    """
+    X, Y = np.meshgrid(x,y)
+    l1 = [i for j in X for i in j]
+    l2 = [i for j in Y for i in j]
+    points = [list(i) for i in zip(l1,l2)]
+    values = np.array([i for j in data for i in j])
+    #grid_x,grid_y = np.mgrid[-0.5:0.5:num, -0.5:0.5:num]
+    grid_x,grid_y = np.mgrid[x[0]:x[-1]:num, y[0]:y[-1]:num]
+    grid = griddata(points,values,(grid_x,grid_y),method='cubic')
+
+    if display == True:
+        py.figure('Interpolated map')
+        plt.imshow(grid.T)
+        plt.colorbar()
+        plt.show()
+
+    return grid
