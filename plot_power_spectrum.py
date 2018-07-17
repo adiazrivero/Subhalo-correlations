@@ -5,20 +5,64 @@ import pylab as py
 import sys
 import time
 import cmath
-from R_ein import rein_sigmac
-from functions import simul_data,rotation,projections,twoD_ps,angular_average,variance
+from functions import *
 
-np.set_printoptions(suppress=True,linewidth=np.nan,threshold=np.nan)
-plt.rc('text', usetex=True)
+list=sys.argv[1:]
+for i in list:
+    exec(i)
 
-plot_errors = True
-save_files = False
+if numb == 78 or numb == 95:
+    numb = '0' + str(numb)
+else:
+    numb = str(numb)
+
+if name == 0:
+    name = 'CDM'
+elif name == 1:
+    name = 'ETHOS_1'
+elif name == 2:
+    name = 'ETHOS_4'
+
+if numb == '127':
+    z = 0.5
+    print "z = %s; redshift changed to give physical values" % z
+elif numb == '095':
+    z = 0.5
+    print 'z = %s' % z
+elif numb == '078':
+    z = 1
+    print 'z = %s' % z
+else:
+    print "wrong redshift specified"
+    sys.exit()
+
+if mhigh == 0:
+   mlab = 'm0'
+if mhigh == 1e-2:
+   mlab = 'm8'
+if mhigh == 1e-3:
+   mlab = 'm7'
+
+print numb,name,mlab
+
+pix_num0 = 501
+rnge0 = 100
 
 ############################################
 #loading properties of the convergence maps
 ############################################
 
-feats = np.load('convfeat_101_100.npy').item()
+if name == 'CDM':
+    
+    feats = np.load('/n/home04/adiazrivero/conv_powerspec/clean_fof_masscut/%s/%s/%s/convfeat%s_%s_%s_%s_%s.npy' % (name,numb,mlab,name,numb,pix_num0,rnge0,mlab)).item()
+    projfeats = np.load('/n/home04/adiazrivero/conv_powerspec/clean_fof_masscut/%s/%s/%s/projfeat%s_%s_%s_%s_%s.npy' % (name,numb,mlab,name,numb,pix_num0,rnge0,mlab)).item()
+
+elif name == 'ETHOS_1' or name == 'ETHOS_4':
+
+    feats = np.load('/n/home04/adiazrivero/conv_powerspec/clean_fof_masscut/%s/%s/%s/convburkfeat%s_%s_%s_%s_%s.npy' % (name,numb,mlab,name,numb,pix_num0,rnge0,mlab)).item()
+    projfeats = np.load('/n/home04/adiazrivero/conv_powerspec/clean_fof_masscut/%s/%s/%s/projfeatburk%s_%s_%s_%s_%s.npy' % (name,numb,mlab,name,numb,pix_num0,rnge0,mlab)).item()
+
+
 num_proj = feats.get('num_proj')
 rnge = feats.get('rnge')
 pix_num = feats.get('pixels')
@@ -26,7 +70,10 @@ shft = feats.get('shft')
 m_high_cut = feats.get('m_high cut')
 pix_size = rnge/pix_num
 
-projfeats = np.load('projfeat_%s_%s.npy' % (pix_num,rnge)).item()
+if pix_num0 != pix_num or rnge0 != rnge:
+    print "Using wrong projections!"
+    sys.exit()
+
 rein = projfeats.get('r_ein')
 sigmac = projfeats.get('sigmac')
 meff = projfeats.get('m_eff')
@@ -36,13 +83,25 @@ avgkappa_error = projfeats.get('k_avg_error')
 max_rt = projfeats.get('avg_max_rt')
 min_rt = projfeats.get('avg_min_rs')
 
+
+amp = avgkappa * meff / sigmac
+print 'PS amplitude = %s ' % amp
+
 ############################################
 #loading the convergence maps
 ############################################
 
-conv_list1 = np.load('conv_%s_10_%s.npy' % (pix_num,rnge))
-conv_list2 = np.load('conv_%s_20_%s.npy' % (pix_num,rnge))
-conv_list3 = np.load('conv_%s_30_%s.npy' % (pix_num,rnge))
+if name == 'CDM':
+
+    conv_list1 = np.load('/n/home04/adiazrivero/conv_powerspec/clean_fof_masscut/%s/%s/%s/conv%s_%s_%s_10_%s_%s.npy' % (name,numb,mlab,name,numb,pix_num,rnge,mlab))
+    conv_list2 = np.load('/n/home04/adiazrivero/conv_powerspec/clean_fof_masscut/%s/%s/%s/conv%s_%s_%s_20_%s_%s.npy' % (name,numb,mlab,name,numb,pix_num,rnge,mlab))
+    conv_list3 = np.load('/n/home04/adiazrivero/conv_powerspec/clean_fof_masscut/%s/%s/%s/conv%s_%s_%s_30_%s_%s.npy' % (name,numb,mlab,name,numb,pix_num,rnge,mlab))
+
+elif name == 'ETHOS_1' or name == 'ETHOS_4':
+
+    conv_list1 = np.load('/n/home04/adiazrivero/conv_powerspec/clean_fof_masscut/%s/%s/%s/convburk%s_%s_%s_10_%s_%s.npy' % (name,numb,mlab,name,numb,pix_num,rnge,mlab))
+    conv_list2 = np.load('/n/home04/adiazrivero/conv_powerspec/clean_fof_masscut/%s/%s/%s/convburk%s_%s_%s_20_%s_%s.npy' % (name,numb,mlab,name,numb,pix_num,rnge,mlab))
+    conv_list3 = np.load('/n/home04/adiazrivero/conv_powerspec/clean_fof_masscut/%s/%s/%s/convburk%s_%s_%s_30_%s_%s.npy' % (name,numb,mlab,name,numb,pix_num,rnge,mlab))
 
 cl1 = np.ndarray.tolist(conv_list1)
 cl2 = np.ndarray.tolist(conv_list2)
@@ -63,6 +122,7 @@ avg_conv = np.mean(conv_list,axis=0)
 individual_ps,tot_ps,kx,ky = twoD_ps(data=conv_list,pix_size=pix_size,rnge=rnge,shift=shft,show_ps=False)
 
 #load a mask and keep only the right number of rings (depends on pixel number)
+
 orig_mask = np.load('mask_1011.npy')
 bin_num = int((pix_num)/2 + 1)
 mask = []
@@ -74,54 +134,49 @@ for i in orig_mask[:bin_num]:
         mask2.append(j[beg:end])
     mask.append(mask2)
 
+#obtain the 1d power spectrum (for any n) and errors
+
 pix_size_k = np.abs(kx[0]-kx[1])
-ps1d,K = angular_average(tot_ps,kx,ky,mask=mask,rnge=rnge,pix_num=pix_num,dr=pix_size_k,remove_first=True)
 
-amp = avgkappa * meff / sigmac
-print 'PS amplitude = %s ' % amp
+ns = [0,1,2]
+power_spectra,K = multipoles(tot_ps,kx,ky,mask=mask,pix_num=pix_num,dr=pix_size_k,ns=ns)
 
-plt.title('Convergence field on the lens plane (%s proj/$\kappa_{avg}$=%.5f/$m_{high}$ cut = %s)' % (len(conv_list),avgkappa,m_high_cut))
-ax = plt.subplot(111)
-ax.axhline(amp,0.01,100,c='c')
-ax.set_xscale("log")
-ax.set_yscale("log")
+K = K[1:]
+    
+file0 = open('/n/home04/adiazrivero/conv_powerspec/clean_fof_masscut/%s/%s/%s/k%s_%s_%s_%s.txt'% (name,numb,mlab,name,numb,pix_num,rnge), 'w')
+for i in K:
+    file0.write('%s\n' % i)
+file0.close()
 
-if plot_errors == True:
-    var = variance(individual_ps,ps1d,len(individual_ps),kx,ky,mask=mask,rnge=rnge,pix_num=pix_num,pix_size=pix_size_k)
+for key in power_spectra.keys():
+ 
+    var = variance(individual_ps,power_spectra[key][1:],len(individual_ps),kx,ky,mask=mask,rnge=rnge,pix_num=pix_num,pix_size=pix_size_k,n=key)
     std = [np.sqrt(i) for i in var]
-    min_err = [i-j for i,j in zip(ps1d,std)]
-    plus_err = [i+j for i,j in zip(ps1d,std)]
+    min_err = [i-j for i,j in zip(power_spectra[key][1:],std)]
+    plus_err = [i+j for i,j in zip(power_spectra[key][1:],std)]
 
-    ax.plot(K,ps1d)
-    ax.fill_between(K,min_err,plus_err,alpha=0.4,facecolor='red')
+    if save_files == True:
 
-elif std == False:
-    print 'b'
-    ax.plot(K,ps1d)
+        if key == '0':
+	    lab = 'monopole'
+	elif key == '1':
+	    lab = 'dipole'
+	elif key == '2':
+	    lab = 'quadrupole'
 
-ax.set_xlabel('$k$ [kpc]$^{-1}$')
-ax.set_ylabel('$P(k)$ [kpc]$^2$')
-#plt.legend()
-plt.show()
+        file1 = open('/n/home04/adiazrivero/conv_powerspec/clean_fof_masscut/%s/%s/%s/%s%s_%s_%s_%s.txt'% (name,numb,mlab,lab,name,numb,pix_num,rnge), 'w')
+        for i in power_spectra[key][1:]:
+            file1.write('%s\n' % i)
+        file1.close()
+    
+        file2 = open('/n/home04/adiazrivero/conv_powerspec/clean_fof_masscut/%s/%s/%s/min_%s%s_%s_%s_%s.txt'% (name,numb,mlab,lab,name,numb,pix_num,rnge), 'w')
+        for i in min_err:
+            file2.write('%s\n' % i)
+        file2.close()
 
-if save_files == True:
+        file3 = open('/n/home04/adiazrivero/conv_powerspec/clean_fof_masscut/%s/%s/%s/plus_%s%s_%s_%s_%s.txt'% (name,numb,mlab,lab,name,numb,pix_num,rnge), 'w')
+        for i in plus_err:
+            file3.write('%s\n' % i)
+        file3.close()
+    
 
-    file1 = open('ps_%s_%s.txt'% (pix_num,rnge), 'w')
-    for i in ps1d:
-        file1.write('%s\n' % i)
-    file1.close()
-
-    file2 = open('k_%s_%s.txt'% (pix_num,rnge), 'w')
-    for i in K:
-        file2.write('%s\n' % i)
-    file2.close()
-
-    file3 = open('min_%s_%s.txt'% (pix_num,rnge), 'w')
-    for i in min_err:
-        file3.write('%s\n' % i)
-    file3.close()
-
-    file4 = open('plus_%s_%s.txt'% (pix_num,rnge), 'w')
-    for i in plus_err:
-        file4.write('%s\n' % i)
-    file4.close()

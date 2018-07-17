@@ -9,7 +9,7 @@ import scipy
 from scipy.interpolate import griddata
 from mpl_toolkits.mplot3d import Axes3D
 
-def simul_data(data,Rnge=600,mhigh_cut=False):
+def simul_data(data,Rnge=600,mhigh_cut=False,mhigh=0):
     """
     takes in subhalo catalogs and returns subhalo masses, positions, halfmass and vmax radii
     inputs:
@@ -21,35 +21,41 @@ def simul_data(data,Rnge=600,mhigh_cut=False):
         rh : halfmass radii
         rvmax: radius at which v_max (max. circular velocity) is achieved
     """
+
     print "m_high cut: %s " % mhigh_cut
     masses = []
     positions1 = []
     rh = []
     rvmax = []
+    
     for i in data:
+    
         file = h5py.File(i,'r')
+        h = file['Header'].attrs['HubbleParam']
+    
         if len(file['Subhalo'].keys()) != 0:
             masses.append(file['Subhalo']['SubhaloMass'].value) #in 10^10 M_sun/h
             positions1.append(file['Subhalo']['SubhaloPos'].value) # in kpc/h, absolute box coordinates
             rh.append(file['Subhalo']['SubhaloHalfmassRad'].value) # in kpc/h
             rvmax.append(file['Subhalo']['SubhaloVmaxRad'].value) # in kpc/h
-
-    h = 0.7
-
+    
     masses = [i for j in masses for i in j]
     positions1 = [np.asarray(i)*h for j in positions1 for i in j]
     rh = [i*h for j in rh for i in j]
     rvmax = [i*h for j in rvmax for i in j]
     parent_mass = masses[0]
     parent_pos = positions1[0]
+    parent_rvmax = rvmax[0]
+    parent_rh = rh[0]
     positions = [i - parent_pos for i in positions1] #setting origin at halo center
+
     subh = zip(masses[1:],positions[1:],rh[1:],rvmax[1:])
-
-    #keeping subhalos above mass resolution limit (below mhigh if mhigh_cut = True) and out to 300 kpc/h
-
+    
+    #keeping subhalos above mass resolution limit (below mhigh if mhigh_cut = True) and out to 300 kpc
+    
     if mhigh_cut == True:
 
-        subh_cut = [i for i in subh if 1.5e-4 < i[0] <= 1e-2 and -Rnge/2. < i[1][0] < Rnge/2. and -Rnge/2. < i[1][1] < Rnge/2. and -Rnge/2. < i[1][2] < Rnge/2.]
+        subh_cut = [i for i in subh if 1.5e-4 < i[0] <= mhigh and -Rnge/2. < i[1][0] < Rnge/2. and -Rnge/2. < i[1][1] < Rnge/2. and -Rnge/2. < i[1][2] < Rnge/2.]
         mass,pos,rh,rvmax = zip(*subh_cut)
 
         return mass,pos,rh,rvmax
@@ -73,7 +79,17 @@ def rotation(nx,ny,nz,theta):
 
     return R
 
-def projections(positions,masses,rvmax,rh,rnge=100,shift=0,num_proj=1000):
+def orig_projection(positions,masses,rvmax,rh,rnge=100,shift=0,num_proj=10):
+    
+    coords_orig = []
+    coordsm_orig = []
+    
+    orig_proj = [[[i[0],i[1]],j,k,l,np.linalg.norm(i)] for i,j,k,l in zip(positions,masses,rvmax,rh) if -rnge/2.+shift < i[0] < rnge/2.+shift and -rnge/2.+shift < i[1] < rnge/2.+shift]
+    coordsm_orig.append(orig_proj)
+    
+    return coordsm_orig
+
+def projections(positions,masses,rvmax,rh,rnge=100,shift=0,num_proj=10):
     """
     inputs:
         positions: array of 3d positions
@@ -85,7 +101,7 @@ def projections(positions,masses,rvmax,rh,rnge=100,shift=0,num_proj=1000):
         coordsm: array of 2d positions and masses (len(coordsm)=3*num_proj)
         avg_num_subh: average number of subhalos within r < rnge/2 kpc/h after rotating and projecting
     """
-    coords = []
+
     coordsm = []
     count = 0
     while count < num_proj:
@@ -102,9 +118,9 @@ def projections(positions,masses,rvmax,rh,rnge=100,shift=0,num_proj=1000):
         R = rotation(nx,ny,nz,theta)
         rot_pos = [np.dot(R,i) for i in positions]
 
-        proj_xy2 = [[[i[0],i[1]],j,k,l] for i,j,k,l in zip(rot_pos,masses,rvmax,rh) if -rnge/2.+shift < i[0] < rnge/2.+shift and -rnge/2.+shift < i[1] < rnge/2.+shift]
-        proj_xz2 = [[[i[0],i[2]],j,k,l] for i,j,k,l in zip(rot_pos,masses,rvmax,rh) if -rnge/2.+shift < i[0] < rnge/2.+shift and -rnge/2.+shift < i[2] < rnge/2.+shift]
-        proj_yz2 = [[[i[1],i[2]],j,k,l] for i,j,k,l in zip(rot_pos,masses,rvmax,rh) if -rnge/2.+shift < i[1] < rnge/2.+shift and -rnge/2.+shift < i[2] < rnge/2.+shift]
+        proj_xy2 = [[[i[0],i[1]],j,k,l,np.linalg.norm(i)] for i,j,k,l in zip(rot_pos,masses,rvmax,rh) if -rnge/2.+shift < i[0] < rnge/2.+shift and -rnge/2.+shift < i[1] < rnge/2.+shift]
+        proj_xz2 = [[[i[0],i[2]],j,k,l,np.linalg.norm(i)] for i,j,k,l in zip(rot_pos,masses,rvmax,rh) if -rnge/2.+shift < i[0] < rnge/2.+shift and -rnge/2.+shift < i[2] < rnge/2.+shift]
+        proj_yz2 = [[[i[1],i[2]],j,k,l,np.linalg.norm(i)] for i,j,k,l in zip(rot_pos,masses,rvmax,rh) if -rnge/2.+shift < i[1] < rnge/2.+shift and -rnge/2.+shift < i[2] < rnge/2.+shift]
 
         coordsm.append(proj_xy2)
         coordsm.append(proj_xz2)
@@ -201,53 +217,86 @@ def twoD_ps(data=None,pix_size=0,rnge=100,shift=0,show_ps=False):
 
     return ind_ps_x,tot_ps,kx,ky
 
-def angular_average(data,x,y,mask=None,rnge=100,pix_num=21,dr=1,remove_first=False):
+def multipoles(data,x,y,mask=None,pix_num=0,dr=1,ns=[]):
     """
-    takes in a 2d map and returns a 1d, angular-averaged map
-    inputs:
+        inputs:
         data: 2d map
-        ky,ky: fft frequencies
-        rnge: 2d map range in kpc/h
-        dk: pixel size
+        x,y: arrays that make up the map edges
+        rnge: 2d map physical size
+        dr: pixel size
+	ns: a list of integers n where n represents the nth multipole (i.e. 0 = monopole, 1 = dipole, etc.)
     """
+    
+    data = np.asarray(data)
+    shift = int(np.floor(pix_num/2))
+    
     X,Y = np.meshgrid(x,y)
     r = np.sqrt(X**2+Y**2)
+
     if max(x) <= max(y):
         rmax = max(x)
     else:
         rmax = max(y)
+
     R = np.arange(rmax/dr)*dr
 
-    data = np.asarray(data)
-    ps1d = []
-    for i,j in zip(range(len(R)),mask):
-        ring = data*j
-        ring = ring[ring != 0]
-        if ring.size == 0:
-            ring = [0]
-        #print ring
-        ps1d.append(np.asarray(ring).mean())
+    power_spectra = {}
 
-    if remove_first == True:
-        return ps1d[1:],R[1:]
-    else:
-        return ps1d,R
+    for n in ns:
+    	    
+	power_spectra['%s' % n] = []
+	
+	if n == 0:
 
-def variance(individual_ps,ps1d,N,kx,ky,mask=None,rnge=100,pix_num=21,pix_size=1):
+	    for i,j in zip(range(len(R)),mask):
+        	ring = data*j
+        	pk = ring[ring != 0]
+        	dphi = 2*np.pi/len(pk)
+		power_spectra['%s' % n].append((1/(2*np.pi))* np.sum(pk*dphi))
+	
+	if n != 0:    
+
+            for i,j in zip(range(len(R)),mask):
+                ring = data * j
+        
+                pk = ring[ring != 0]
+
+                indices = np.asarray(np.nonzero(ring)) - shift
+                dphi = 2 * np.pi / len(pk)
+
+                phi = np.zeros(len(pk))
+                count = 0
+                for i,j in zip(indices[0],indices[1]):
+                    phi[count] = np.arctan2(j,i)
+                    count += 1
+        
+                integrand = pk * np.cos(n*phi)
+	
+		power_spectra['%s' % n].append((1/(2*np.pi)) * np.sum(dphi*integrand))
+
+    return power_spectra,R
+
+def variance(individual_ps,ps1d,N,kx,ky,mask=None,rnge=100,pix_num=21,pix_size=1,n=None):
     """
     takes in a list of lists where each nested list is a single 2d map and returns the variance of each map with respect to the average of all the maps
         individual_ps: list of lists where each nested list is a single 2d map
-        ps1d: average of all 2d maps
+        ps1d: average 1D power spectrum
         kx,ky: fft frequencies
         rnge: spatial extent out to which we want to consider subhalos
         pix_num: number of pixels
         pix_size: pixel size
     """
+
+    ns = [int(n)]
+
     var = []
+
     for i in individual_ps:
-        ps,kk = angular_average(i,kx,ky,mask=mask,rnge=rnge,pix_num=pix_num,dr=pix_size,remove_first=True)
-        diff = [(1/N)*(j-k)**2 for j,k in zip(ps,ps1d)]
-        var.append(diff)
+
+        power_spectra,K = multipoles(i,kx,ky,mask=mask,pix_num=pix_num,dr=pix_size,ns=ns)
+        diff = [(1/N)*(j-k)**2 for j,k in zip(power_spectra[n],ps1d)]
+	var.append(diff)
+    
     var = np.sum(var,axis=0)
     return var
 
