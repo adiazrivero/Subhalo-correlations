@@ -10,10 +10,10 @@
 NotebookFileLineBreakTest
 NotebookFileLineBreakTest
 NotebookDataPosition[       158,          7]
-NotebookDataLength[   1517522,      35360]
-NotebookOptionsPosition[   1506680,      35009]
-NotebookOutlinePosition[   1507032,      35025]
-CellTagsIndexPosition[   1506989,      35022]
+NotebookDataLength[   1518035,      35376]
+NotebookOptionsPosition[   1507073,      35021]
+NotebookOutlinePosition[   1507425,      35037]
+CellTagsIndexPosition[   1507382,      35034]
 WindowFrame->Normal*)
 
 (* Beginning of Notebook Content *)
@@ -35003,6 +35003,18 @@ Cell[BoxData[
 
 Cell[BoxData["\<\"Burkert_fit.dat\"\>"], "Output",
  CellChangeTimes->{3.7420628443532*^9}]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"0.66651", " ", "3.2446257246042656`"}]], "Input",
+ CellChangeTimes->{{3.742123471754724*^9, 3.742123515358453*^9}, {
+  3.7421237622464323`*^9, 3.74212378691479*^9}}],
+
+Cell[BoxData["2.162575491705989`"], "Output",
+ CellChangeTimes->{{3.742123475046191*^9, 3.7421235155560093`*^9}, {
+  3.742123762955076*^9, 3.7421237875403423`*^9}}]
 }, Open  ]]
 }, Open  ]]
 }, Open  ]]
@@ -35359,6 +35371,10 @@ Cell[1465686, 34173, 40621, 819, 490, "Output"]
 Cell[CellGroupData[{
 Cell[1506344, 34997, 203, 4, 28, "Input"],
 Cell[1506550, 35003, 90, 1, 28, "Output"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[1506677, 35009, 189, 3, 28, "Input"],
+Cell[1506869, 35014, 164, 2, 28, "Output"]
 }, Open  ]]
 }, Open  ]]
 }, Open  ]]
