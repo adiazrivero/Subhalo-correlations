@@ -136,4 +136,6 @@ returns the power spectra for the individual convergence maps as ind_curves_%s_%
     
     psub_times_sigmac.py // redshift_dependance.py --> Figure 2 top panels (the former for the PRD version and the latter for the arxiv version)
  
-5. The directory "host_features" contains text files with features for the host for the CDM and ETHOS_4 simulations at z=0 and z=0.5. The file host_posmass.py can make these files for any desired simulation/redshift. See below for what variables have to be specified when compiling. The directory "rein_sigmac_all" is the same but for the einstein radius and sigma_crit of a given simulation. The file R_ein.py computes them.
+5. The file host_posmass.py will give you the host position, mass, VmaxRad and HalfmassRad for any desired simulation/redshift.
+
+6. The directory "rein_sigmac_all" has the Einstein radius and sigma_crit of a given simulation. The file R_ein.py computes them.
