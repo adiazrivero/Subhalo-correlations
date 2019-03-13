@@ -37,7 +37,7 @@ Then,
                            default=10,
                            help='total number of projections divided by 3')
 
-2. convergence_maps.py: makes a tnfw/tburk convergence map for each projection in projections.npy. Arguments that must be passed when compiling (python make_projections.py name=XXX numb=YYY etc.)
+2. convergence_maps.py: makes a tnfw/tburk convergence map for each projection in projections.npy. Arguments that can be passed when compiling:
 
         parser.add_argument('--proj_file',
                           help='path for file with projections, output of make_projections.py',
@@ -77,7 +77,7 @@ Then,
    
 Returns them as conv%s_%s_%s_%s_%s.npy %s (name,numb,pix_num,count,rnge) count=the count in the loop (they are stored in sets of ten, so for the first 10 maps count, for the next ten count=2, etc.) in the directory specified in --outdir.  
 
-3. power_spectrum.py: it takes in the convergence maps and returns the 1d power spectrum for each individual convergence map:
+3. power_spectrum.py: it takes in the convergence maps and returns the 1d power spectrum for each individual convergence map.
 
         parser.add_argument('--conv_file1',
                           help='path for file with convergence maps, output of convergence_maps.py',
