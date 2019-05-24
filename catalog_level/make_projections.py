@@ -19,10 +19,6 @@ parser.add_argument('-o','--outdir',
                     default='./',
                     help='output directory',
                     type=str)
-parser.add_argument("-p","--pix_num",
-                    default=1011,
-                    help="number of pixels in the image",
-                    type=int)
 parser.add_argument("-s","--side",
                     default=100,
                     help='physical size of the image in kpc',
@@ -47,7 +43,6 @@ parser.add_argument("-n","--num_proj",
 args = parser.parse_args()
 
 outdir = args.outdir
-pix_num = args.pix_num
 rnge = args.side
 name = args.name
 z = args.z
@@ -123,8 +118,6 @@ elif mlow == None:
 if mlab == mlab2 or mhigh <= m_min:
     print('wrong mass bounds specified!')
     sys.exit()
-
-sys.exit()
 
 ######################################################
 
