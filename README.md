@@ -1,4 +1,4 @@
-Code to reproduce the results in https://arxiv.org/pdf/1809.00004.pdf. 
+Code to reproduce the results in https://arxiv.org/abs/1707.04590 and https://arxiv.org/pdf/1809.00004.pdf. 
 
 Most of the heavy duty functions are in functions.py, tburk_convergence.py and tnfw_convergence.py. Before running anything else, run make_mask.py: will return a npy file called mask_x.npy where x = pix_num, and it is a mask needed to do the azimuthal averaging. The default pix_num is 1011 and default size of the image (in kpc) is 100 - to specify different values run it as 
 
